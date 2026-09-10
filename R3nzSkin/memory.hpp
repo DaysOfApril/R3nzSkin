@@ -75,7 +75,9 @@ private:
 		},
 		{
 			{
-				"48 8B 0D ? ? ? ? E8 ? ? ? ? 48 8B 0D ? ? ? ? E8 ? ? ? ? 48 8B 0D ? ? ? ? E8 ? ? ? ? E8 ? ? ? ? 48 8B 0D ? ? ? ? 48 8B 01"
+				// anchor: `mov rcx, [rip+ManagerTemplate<AIMinionClient>]` inside the
+				// manager-type dispatch block (byte-identical on 16.12 and 16.18)
+				"48 8B 0D ? ? ? ? 8B D2 E8 ? ? ? ? 48 8B 0D ? ? ? ? 33 D2 48 83 C4 28 E9"
 			}, true, false, true, 0, &offsets::global::ManagerTemplate_AIMinionClient_
 		},
 		{
@@ -120,7 +122,10 @@ private:
 		},
 		{
 			{
-				"E8 ? ? ? ? 45 33 C0 48 8B D0 48 8B CB E8 ? ? ? ? E9"
+				// matched on the function prologue instead of a call site: the first
+				// byte is not 0xE8, so Memory::Search keeps the match address and
+				// `sub_base` turns it into the entry point RVA
+				"40 53 48 83 EC 30 80 39 00 48 8B C1 8B D1 74 0B 48 FF C0 48 8B D0 80 38 00 75 F5"
 			}, true, false, false, 0, &offsets::functions::translateString_UNSAFE_DONOTUSE
 		},
 		{

@@ -1,18 +1,73 @@
-name: Windows
+name: Build R3nzSkin DLL
 
-on: [push, pull_request]
+# 什么时候自动跑：
+#   1) 你往 main 分支 push 代码
+#   2) 你在 Actions 页面手动点 "Run workflow"
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-2022]
-        configuration: [RiotGamesServers, ChinaServer]
+    runs-on: windows-2022
+
     steps:
-    - uses: actions/checkout@v3.5.2
-    - name: Add msbuild to PATH
-      uses: microsoft/setup-msbuild@v1.3.1
-    - name: Build
-      shell: cmd
-      run: msbuild R3nzSkin/R3nzSkin.vcxproj /p:Platform=x64 /p:Configuration=${{ matrix.configuration }}
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1
+
+      # 防止以后 git pull 拉作者更新时把我们的特征码改动覆盖掉而没人发现
+      - name: Verify 16.18 patterns are still patched
+        shell: pwsh
+        run: |
+          $hpp = Get-Content R3nzSkin\memory.hpp -Raw
+          $need = @(
+            '33 D2 48 83 C4 28 E9',
+            '40 53 48 83 EC 30 80 39 00 48 8B C1 8B D1 74 0B'
+          )
+          foreach ($p in $need) {
+            if ($hpp -notlike "*$p*") {
+              throw "memory.hpp no longer contains pattern '$p' -- the patch was overwritten."
+            }
+          }
+          Write-Host "both patched patterns present"
+
+      - name: Build (RiotGamesServers x64)
+        shell: cmd
+        run: msbuild R3nzSkin\R3nzSkin.vcxproj /p:Platform=x64 /p:Configuration=RiotGamesServers
+
+      - name: Stage R3nzSkin.dll
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          $dll = Get-ChildItem -Path . -Recurse -Filter R3nzSkin.dll -File |
+                 Where-Object { $_.FullName -notmatch '\\out\\' } |
+                 Sort-Object LastWriteTime -Descending |
+                 Select-Object -First 1
+          if (-not $dll) { throw "build finished but R3nzSkin.dll was not found" }
+
+          $hash = (Get-FileHash $dll.FullName -Algorithm SHA256).Hash
+          Write-Host "built : $($dll.FullName)"
+          Write-Host "size  : $($dll.Length) bytes"
+          Write-Host "sha256: $hash"
+
+          "### R3nzSkin.dll"                       >> $env:GITHUB_STEP_SUMMARY
+          ""                                       >> $env:GITHUB_STEP_SUMMARY
+          "| | |"                                  >> $env:GITHUB_STEP_SUMMARY
+          "|---|---|"                              >> $env:GITHUB_STEP_SUMMARY
+          "| size | $($dll.Length) bytes |"        >> $env:GITHUB_STEP_SUMMARY
+          "| sha256 | ``$hash`` |"                 >> $env:GITHUB_STEP_SUMMARY
+          "| commit | $($env:GITHUB_SHA) |"        >> $env:GITHUB_STEP_SUMMARY
+
+          Copy-Item $dll.FullName out\R3nzSkin.dll -Force
+
+      - name: Upload R3nzSkin.dll
+        uses: actions/upload-artifact@v4
+        with:
+          name: R3nzSkin-RiotGamesServers-x64
+          path: out/R3nzSkin.dll
+          if-no-files-found: error
+          retention-days: 90
