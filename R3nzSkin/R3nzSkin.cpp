@@ -81,3 +81,21 @@ __declspec(safebuffers) BOOL APIENTRY DllMain(const HMODULE hModule, const DWORD
 	::CloseHandle(hModule);
 	return TRUE;
 }
+
+// ---------------------------------------------------------------------------
+// The launcher bundled with the releases injects R3nzSkin.dll with
+// SetWindowsHookEx: it resolves this symbol from the DLL and hands the address
+// to SetWindowsHookEx, which makes Windows map the DLL into the game process.
+//
+// The published DLL exports exactly this one symbol ("NextHook"). The open-source
+// tree does not, so a DLL built from this repository has an *empty* export table,
+// GetProcAddress() returns nullptr, the hook is never installed and the launcher
+// silently reports "Not Injected". Keep this name and signature exactly as-is.
+//
+// The body only has to be a valid hook procedure -- the real work happens in
+// DllMain() above, which Windows calls when the DLL gets mapped into the game.
+// ---------------------------------------------------------------------------
+extern "C" __declspec(dllexport) LRESULT CALLBACK NextHook(const int code, const WPARAM wParam, const LPARAM lParam) noexcept
+{
+	return ::CallNextHookEx(nullptr, code, wParam, lParam);
+}

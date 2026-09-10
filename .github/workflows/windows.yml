@@ -49,6 +49,14 @@ jobs:
                  Select-Object -First 1
           if (-not $dll) { throw "build finished but R3nzSkin.dll was not found" }
 
+          # 启动器靠 GetProcAddress("NextHook") + SetWindowsHookEx 注入，
+          # DLL 少了这个导出就会一直显示 "Not Injected"（导出名在 PE 表里是明文 ASCII）
+          $ascii = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($dll.FullName))
+          if ($ascii -notlike '*NextHook*') {
+            throw "R3nzSkin.dll does not export 'NextHook' -- the launcher cannot inject it"
+          }
+          Write-Host "NextHook export : present"
+
           $hash = (Get-FileHash $dll.FullName -Algorithm SHA256).Hash
           Write-Host "built : $($dll.FullName)"
           Write-Host "size  : $($dll.Length) bytes"

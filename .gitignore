@@ -350,3 +350,8 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# Locally downloaded / built R3nzSkin binaries (never commit these)
+/R3nzSkin.dll
+/R3nzSkin.dll.backup
+/ReSkin_*.exe
